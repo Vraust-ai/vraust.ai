@@ -37,6 +37,7 @@ export const DemoPage = () => {
     email: "",
     message: "",
   });
+  const [honeypot, setHoneypot] = useState("");
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -67,6 +68,7 @@ export const DemoPage = () => {
           industry: validatedData.industry,
           email: validatedData.email,
           message: validatedData.message || "",
+          _hp: honeypot, // honeypot field for bot detection
         },
       }).catch((emailError) => {
         console.error("Email notification failed:", emailError);
@@ -318,6 +320,20 @@ export const DemoPage = () => {
                         value={formData.message}
                         onChange={handleChange}
                         className="flex w-full rounded-lg border border-border bg-muted/50 px-4 py-3 text-base text-foreground ring-offset-background transition-all duration-200 placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/50 focus-visible:border-primary/50 resize-none"
+                      />
+                    </div>
+
+                    {/* Honeypot field - hidden from real users, bots will fill it */}
+                    <div aria-hidden="true" style={{ position: 'absolute', left: '-9999px', top: '-9999px' }}>
+                      <label htmlFor="website">Website</label>
+                      <input
+                        type="text"
+                        id="website"
+                        name="website"
+                        tabIndex={-1}
+                        autoComplete="off"
+                        value={honeypot}
+                        onChange={(e) => setHoneypot(e.target.value)}
                       />
                     </div>
                   </div>
