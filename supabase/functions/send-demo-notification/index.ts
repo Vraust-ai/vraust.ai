@@ -123,6 +123,19 @@ const handler = async (req: Request): Promise<Response> => {
   try {
     const rawBody = await req.json();
     
+    // Check honeypot field - if filled, it's likely a bot
+    if (rawBody._hp && rawBody._hp.length > 0) {
+      console.warn("Bot detected via honeypot field");
+      // Return success to not reveal detection
+      return new Response(
+        JSON.stringify({ success: true }),
+        {
+          status: 200,
+          headers: { "Content-Type": "application/json", ...corsHeaders },
+        }
+      );
+    }
+    
     // Server-side validation
     const validation = validateDemoRequest(rawBody);
     if (!validation.valid || !validation.data) {
