@@ -1,4 +1,5 @@
 import { motion } from "framer-motion";
+import vraustFavicon from "@/assets/vraust-favicon.png";
 
 export const HowItWorksSection = () => {
   return (
@@ -87,13 +88,15 @@ export const HowItWorksSection = () => {
               <path d="M165 200 L 350 200" fill="none" stroke="url(#primaryGradient)" strokeWidth="2" className="flow-line" filter="url(#glow)" />
               <path d="M165 300 Q 280 300 400 200" fill="none" stroke="url(#primaryGradient)" strokeWidth="2" className="flow-line" filter="url(#glow)" />
 
-              {/* Secure Aggregator (Vault) */}
+              {/* Secure Aggregator (Vraust Logo) */}
               <g filter="url(#glow)">
-                <rect x="350" y="140" width="100" height="120" rx="12" fill="hsl(210, 40%, 12%)" stroke="url(#primaryGradient)" strokeWidth="3" />
-                <text x="400" y="185" textAnchor="middle" fill="hsl(206, 88%, 50%)" fontSize="24">🔐</text>
-                <text x="400" y="210" textAnchor="middle" fill="hsl(210, 20%, 90%)" fontSize="10" fontWeight="600">Secure</text>
-                <text x="400" y="225" textAnchor="middle" fill="hsl(210, 20%, 90%)" fontSize="10" fontWeight="600">Aggregation</text>
-                <text x="400" y="245" textAnchor="middle" fill="hsl(185, 75%, 50%)" fontSize="8">No raw data</text>
+                <image 
+                  href={vraustFavicon} 
+                  x="325" 
+                  y="125" 
+                  width="150" 
+                  height="150" 
+                />
               </g>
 
               {/* Flow Lines to Global Model */}
