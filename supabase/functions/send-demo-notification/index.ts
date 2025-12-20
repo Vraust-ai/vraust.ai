@@ -4,6 +4,7 @@ import { createClient } from "https://esm.sh/@supabase/supabase-js@2.49.4";
 const RESEND_API_KEY = Deno.env.get("RESEND_API_KEY");
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL");
 const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY");
+const RECAPTCHA_SECRET_KEY = Deno.env.get("RECAPTCHA_SECRET_KEY");
 
 // Rate limit configuration
 const RATE_LIMIT_WINDOW_MINUTES = 60; // 1 hour window
@@ -99,6 +100,39 @@ async function recordSubmission(
 
   if (error) {
     console.error("Error recording submission for rate limiting:", error);
+  }
+}
+
+// Verify reCAPTCHA token
+async function verifyRecaptcha(token: string, clientIp: string): Promise<{ success: boolean; error?: string }> {
+  if (!RECAPTCHA_SECRET_KEY) {
+    console.error("RECAPTCHA_SECRET_KEY is not configured");
+    return { success: false, error: "reCAPTCHA verification not configured" };
+  }
+
+  try {
+    const response = await fetch("https://www.google.com/recaptcha/api/siteverify", {
+      method: "POST",
+      headers: { "Content-Type": "application/x-www-form-urlencoded" },
+      body: new URLSearchParams({
+        secret: RECAPTCHA_SECRET_KEY,
+        response: token,
+        remoteip: clientIp,
+      }),
+    });
+
+    const data = await response.json();
+    console.log("reCAPTCHA verification response:", data);
+
+    if (!data.success) {
+      console.warn("reCAPTCHA verification failed:", data["error-codes"]);
+      return { success: false, error: "reCAPTCHA verification failed" };
+    }
+
+    return { success: true };
+  } catch (error) {
+    console.error("reCAPTCHA verification error:", error);
+    return { success: false, error: "reCAPTCHA verification error" };
   }
 }
 
@@ -230,6 +264,31 @@ const handler = async (req: Request): Promise<Response> => {
     
     const { name, organization, role, industry, email, message } = validation.data;
     const clientIp = getClientIp(req);
+
+    // Verify reCAPTCHA token
+    const recaptchaToken = rawBody.recaptchaToken;
+    if (!recaptchaToken) {
+      console.warn("No reCAPTCHA token provided");
+      return new Response(
+        JSON.stringify({ error: "Please complete the reCAPTCHA verification" }),
+        {
+          status: 400,
+          headers: { "Content-Type": "application/json", ...corsHeaders },
+        }
+      );
+    }
+
+    const recaptchaResult = await verifyRecaptcha(recaptchaToken, clientIp);
+    if (!recaptchaResult.success) {
+      console.warn("reCAPTCHA verification failed for IP:", clientIp);
+      return new Response(
+        JSON.stringify({ error: recaptchaResult.error }),
+        {
+          status: 400,
+          headers: { "Content-Type": "application/json", ...corsHeaders },
+        }
+      );
+    }
 
     // Check rate limits
     const rateLimitCheck = await checkRateLimit(supabase, clientIp, email);

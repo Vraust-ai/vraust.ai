@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { motion } from "framer-motion";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -7,6 +7,21 @@ import { ArrowLeft, Shield, Lock, CheckCircle2, Loader2 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
 import { z } from "zod";
+
+// Replace with your reCAPTCHA site key
+const RECAPTCHA_SITE_KEY = "6LcPg6krAAAAAGyRjP33b2rXGpYlCCBL-Rz4_HFV";
+
+declare global {
+  interface Window {
+    grecaptcha: {
+      ready: (callback: () => void) => void;
+      execute: (siteKey: string, options: { action: string }) => Promise<string>;
+      render: (container: string | HTMLElement, options: { sitekey: string; callback: (token: string) => void; "expired-callback": () => void }) => number;
+      reset: (widgetId?: number) => void;
+    };
+    onRecaptchaLoaded?: () => void;
+  }
+}
 
 const demoRequestSchema = z.object({
   name: z.string().trim().min(1, "Name is required").max(100, "Name must be less than 100 characters"),
@@ -38,9 +53,74 @@ export const DemoPage = () => {
     message: "",
   });
   const [honeypot, setHoneypot] = useState("");
+  const [recaptchaToken, setRecaptchaToken] = useState<string | null>(null);
+  const [recaptchaWidgetId, setRecaptchaWidgetId] = useState<number | null>(null);
+  const [recaptchaLoaded, setRecaptchaLoaded] = useState(false);
+
+  // Load reCAPTCHA script
+  useEffect(() => {
+    if (document.querySelector('script[src*="recaptcha"]')) {
+      if (window.grecaptcha) {
+        setRecaptchaLoaded(true);
+      }
+      return;
+    }
+
+    window.onRecaptchaLoaded = () => {
+      setRecaptchaLoaded(true);
+    };
+
+    const script = document.createElement("script");
+    script.src = `https://www.google.com/recaptcha/api.js?onload=onRecaptchaLoaded&render=explicit`;
+    script.async = true;
+    script.defer = true;
+    document.head.appendChild(script);
+
+    return () => {
+      window.onRecaptchaLoaded = undefined;
+    };
+  }, []);
+
+  // Render reCAPTCHA widget
+  const recaptchaCallback = useCallback(() => {
+    if (!recaptchaLoaded || recaptchaWidgetId !== null || isSubmitted) return;
+    
+    const container = document.getElementById("recaptcha-container");
+    if (!container || !window.grecaptcha) return;
+
+    try {
+      const widgetId = window.grecaptcha.render("recaptcha-container", {
+        sitekey: RECAPTCHA_SITE_KEY,
+        callback: (token: string) => {
+          setRecaptchaToken(token);
+        },
+        "expired-callback": () => {
+          setRecaptchaToken(null);
+        },
+      });
+      setRecaptchaWidgetId(widgetId);
+    } catch (error) {
+      console.error("Error rendering reCAPTCHA:", error);
+    }
+  }, [recaptchaLoaded, recaptchaWidgetId, isSubmitted]);
+
+  useEffect(() => {
+    recaptchaCallback();
+  }, [recaptchaCallback]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    
+    // Check reCAPTCHA
+    if (!recaptchaToken) {
+      toast({
+        title: "Verification Required",
+        description: "Please complete the reCAPTCHA verification.",
+        variant: "destructive",
+      });
+      return;
+    }
+
     setIsSubmitting(true);
 
     try {
@@ -59,8 +139,8 @@ export const DemoPage = () => {
 
       if (error) throw error;
 
-      // Send email notification (fire and forget - don't block success)
-      supabase.functions.invoke("send-demo-notification", {
+      // Send email notification with reCAPTCHA token
+      const { error: functionError } = await supabase.functions.invoke("send-demo-notification", {
         body: {
           name: validatedData.name,
           organization: validatedData.organization,
@@ -68,11 +148,14 @@ export const DemoPage = () => {
           industry: validatedData.industry,
           email: validatedData.email,
           message: validatedData.message || "",
-          _hp: honeypot, // honeypot field for bot detection
+          _hp: honeypot,
+          recaptchaToken,
         },
-      }).catch((emailError) => {
-        console.error("Email notification failed:", emailError);
       });
+
+      if (functionError) {
+        console.error("Email notification failed:", functionError);
+      }
 
       setIsSubmitted(true);
       toast({
@@ -95,6 +178,11 @@ export const DemoPage = () => {
       }
     } finally {
       setIsSubmitting(false);
+      // Reset reCAPTCHA on error
+      if (recaptchaWidgetId !== null && window.grecaptcha) {
+        window.grecaptcha.reset(recaptchaWidgetId);
+        setRecaptchaToken(null);
+      }
     }
   };
 
@@ -336,10 +424,15 @@ export const DemoPage = () => {
                         onChange={(e) => setHoneypot(e.target.value)}
                       />
                     </div>
+
+                    {/* reCAPTCHA */}
+                    <div className="mt-4">
+                      <div id="recaptcha-container" className="flex justify-center"></div>
+                    </div>
                   </div>
 
                   {/* Submit Button */}
-                  <Button type="submit" variant="cta" size="lg" className="w-full mt-8" disabled={isSubmitting}>
+                  <Button type="submit" variant="cta" size="lg" className="w-full mt-8" disabled={isSubmitting || !recaptchaToken}>
                     {isSubmitting ? <><Loader2 className="w-4 h-4 mr-2 animate-spin" /> Submitting...</> : "Request Demo"}
                   </Button>
 
