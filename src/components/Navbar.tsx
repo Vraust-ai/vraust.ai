@@ -3,7 +3,7 @@ import { motion } from "framer-motion";
 import { Link } from "react-router-dom";
 import { Menu, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import vraustLogo from "@/assets/vraust-logo-horizontal.png";
+import vraustLogo from "@/assets/vraust-logo-white.png";
 
 const navLinks = [
   { label: "How It Works", href: "#how-it-works" },
@@ -29,7 +29,7 @@ export const Navbar = () => {
           <img 
             src={vraustLogo} 
             alt="Vraust.ai - Privacy. Security. Compliance" 
-            className="h-10 md:h-12 w-auto brightness-0 invert"
+            className="h-12 md:h-14 w-auto"
           />
         </Link>
 
