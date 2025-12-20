@@ -3,6 +3,7 @@ import { motion } from "framer-motion";
 import { Link } from "react-router-dom";
 import { Menu, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import vraustLogo from "@/assets/vraust-logo.jpg";
 
 const navLinks = [
   { label: "How It Works", href: "#how-it-works" },
@@ -24,13 +25,12 @@ export const Navbar = () => {
       
       <nav className="relative container mx-auto px-4 h-20 flex items-center justify-between">
         {/* Logo */}
-        <Link to="/" className="flex items-center gap-3 group">
-          <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-primary to-accent flex items-center justify-center shadow-button">
-            <span className="text-lg font-bold text-primary-foreground">V</span>
-          </div>
-          <span className="text-xl font-bold text-foreground">
-            Vraust<span className="text-primary">.ai</span>
-          </span>
+        <Link to="/" className="flex items-center gap-2 group">
+          <img 
+            src={vraustLogo} 
+            alt="Vraust.ai - Privacy. Security. Compliance" 
+            className="h-12 w-auto"
+          />
         </Link>
 
         {/* Desktop Navigation */}

@@ -1,4 +1,5 @@
 import { Link } from "react-router-dom";
+import vraustLogo from "@/assets/vraust-logo.jpg";
 
 export const Footer = () => {
   const currentYear = new Date().getFullYear();
@@ -9,13 +10,12 @@ export const Footer = () => {
         <div className="grid md:grid-cols-4 gap-12 mb-12">
           {/* Brand */}
           <div className="md:col-span-2">
-            <Link to="/" className="flex items-center gap-3 mb-4">
-              <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-primary to-accent flex items-center justify-center">
-                <span className="text-lg font-bold text-primary-foreground">V</span>
-              </div>
-              <span className="text-xl font-bold text-foreground">
-                Vraust<span className="text-primary">.ai</span>
-              </span>
+            <Link to="/" className="flex items-center gap-2 mb-4">
+              <img 
+                src={vraustLogo} 
+                alt="Vraust.ai - Privacy. Security. Compliance" 
+                className="h-14 w-auto"
+              />
             </Link>
             <p className="text-muted-foreground text-sm leading-relaxed max-w-md mb-6">
               The Vault of Trust for Collaborative AI. Privacy-preserving machine learning 
