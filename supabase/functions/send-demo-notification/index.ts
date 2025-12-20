@@ -1,6 +1,14 @@
 import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
+import { createClient } from "https://esm.sh/@supabase/supabase-js@2.49.4";
 
 const RESEND_API_KEY = Deno.env.get("RESEND_API_KEY");
+const SUPABASE_URL = Deno.env.get("SUPABASE_URL");
+const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY");
+
+// Rate limit configuration
+const RATE_LIMIT_WINDOW_MINUTES = 60; // 1 hour window
+const MAX_REQUESTS_PER_IP = 5; // Max 5 requests per IP per hour
+const MAX_REQUESTS_PER_EMAIL = 3; // Max 3 requests per email per hour
 
 // Allowed origins for CORS
 const ALLOWED_ORIGINS = [
@@ -23,6 +31,75 @@ function escapeHtml(unsafe: string): string {
     .replace(/>/g, "&gt;")
     .replace(/"/g, "&quot;")
     .replace(/'/g, "&#039;");
+}
+
+// Get client IP from request headers
+function getClientIp(req: Request): string {
+  return req.headers.get("x-forwarded-for")?.split(",")[0]?.trim() ||
+         req.headers.get("x-real-ip") ||
+         req.headers.get("cf-connecting-ip") ||
+         "unknown";
+}
+
+// Check rate limits
+async function checkRateLimit(
+  supabase: any,
+  ip: string,
+  email: string
+): Promise<{ allowed: boolean; reason?: string }> {
+  const windowStart = new Date(Date.now() - RATE_LIMIT_WINDOW_MINUTES * 60 * 1000).toISOString();
+
+  // Check IP rate limit
+  const { count: ipCount, error: ipError } = await supabase
+    .from("demo_rate_limits")
+    .select("*", { count: "exact", head: true })
+    .eq("ip_address", ip)
+    .gte("submitted_at", windowStart);
+
+  if (ipError) {
+    console.error("Error checking IP rate limit:", ipError);
+    // Allow on error to not block legitimate requests
+    return { allowed: true };
+  }
+
+  if ((ipCount ?? 0) >= MAX_REQUESTS_PER_IP) {
+    console.warn(`Rate limit exceeded for IP: ${ip}`);
+    return { allowed: false, reason: "Too many requests. Please try again later." };
+  }
+
+  // Check email rate limit
+  const { count: emailCount, error: emailError } = await supabase
+    .from("demo_rate_limits")
+    .select("*", { count: "exact", head: true })
+    .eq("email", email.toLowerCase())
+    .gte("submitted_at", windowStart);
+
+  if (emailError) {
+    console.error("Error checking email rate limit:", emailError);
+    return { allowed: true };
+  }
+
+  if ((emailCount ?? 0) >= MAX_REQUESTS_PER_EMAIL) {
+    console.warn(`Rate limit exceeded for email: ${email}`);
+    return { allowed: false, reason: "You've already submitted a demo request. We'll be in touch soon!" };
+  }
+
+  return { allowed: true };
+}
+
+// Record submission for rate limiting
+async function recordSubmission(
+  supabase: any,
+  ip: string,
+  email: string
+): Promise<void> {
+  const { error } = await supabase
+    .from("demo_rate_limits")
+    .insert({ ip_address: ip, email: email.toLowerCase() });
+
+  if (error) {
+    console.error("Error recording submission for rate limiting:", error);
+  }
 }
 
 // Server-side validation schema
@@ -117,8 +194,10 @@ const handler = async (req: Request): Promise<Response> => {
   const origin = req.headers.get("origin");
   if (origin && !ALLOWED_ORIGINS.some(allowed => origin.startsWith(allowed.replace(/:\d+$/, '')))) {
     console.warn("Request from unauthorized origin:", origin);
-    // We still allow it but log for monitoring - in production you might want to block
   }
+
+  // Initialize Supabase client for rate limiting
+  const supabase = createClient(SUPABASE_URL!, SUPABASE_SERVICE_ROLE_KEY!);
 
   try {
     const rawBody = await req.json();
@@ -150,8 +229,25 @@ const handler = async (req: Request): Promise<Response> => {
     }
     
     const { name, organization, role, industry, email, message } = validation.data;
+    const clientIp = getClientIp(req);
 
-    console.log("Sending demo notification for:", { name, organization, email });
+    // Check rate limits
+    const rateLimitCheck = await checkRateLimit(supabase, clientIp, email);
+    if (!rateLimitCheck.allowed) {
+      console.warn(`Rate limit blocked: IP=${clientIp}, Email=${email}`);
+      return new Response(
+        JSON.stringify({ error: rateLimitCheck.reason }),
+        {
+          status: 429,
+          headers: { "Content-Type": "application/json", ...corsHeaders },
+        }
+      );
+    }
+
+    // Record this submission for rate limiting
+    await recordSubmission(supabase, clientIp, email);
+
+    console.log("Sending demo notification for:", { name, organization, email, ip: clientIp });
 
     // Escape all user inputs for HTML
     const safeName = escapeHtml(name);
