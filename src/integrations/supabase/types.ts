@@ -14,6 +14,27 @@ export type Database = {
   }
   public: {
     Tables: {
+      demo_rate_limits: {
+        Row: {
+          email: string | null
+          id: string
+          ip_address: string | null
+          submitted_at: string
+        }
+        Insert: {
+          email?: string | null
+          id?: string
+          ip_address?: string | null
+          submitted_at?: string
+        }
+        Update: {
+          email?: string | null
+          id?: string
+          ip_address?: string | null
+          submitted_at?: string
+        }
+        Relationships: []
+      }
       demo_requests: {
         Row: {
           created_at: string
@@ -52,7 +73,7 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
-      [_ in never]: never
+      cleanup_old_rate_limits: { Args: never; Returns: undefined }
     }
     Enums: {
       [_ in never]: never
