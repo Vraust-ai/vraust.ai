@@ -3,8 +3,19 @@ import { motion } from "framer-motion";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Link } from "react-router-dom";
-import { ArrowLeft, Shield, Lock, CheckCircle2 } from "lucide-react";
+import { ArrowLeft, Shield, Lock, CheckCircle2, Loader2 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
+import { supabase } from "@/integrations/supabase/client";
+import { z } from "zod";
+
+const demoRequestSchema = z.object({
+  name: z.string().trim().min(1, "Name is required").max(100, "Name must be less than 100 characters"),
+  organization: z.string().trim().min(1, "Organization is required").max(200, "Organization must be less than 200 characters"),
+  role: z.string().trim().min(1, "Role is required").max(100, "Role must be less than 100 characters"),
+  industry: z.string().trim().min(1, "Industry is required"),
+  email: z.string().trim().email("Invalid email address").max(255, "Email must be less than 255 characters"),
+  message: z.string().trim().max(1000, "Message must be less than 1000 characters").optional(),
+});
 
 const industries = [
   "Banking",
@@ -17,6 +28,7 @@ const industries = [
 export const DemoPage = () => {
   const { toast } = useToast();
   const [isSubmitted, setIsSubmitted] = useState(false);
+  const [isSubmitting, setIsSubmitting] = useState(false);
   const [formData, setFormData] = useState({
     name: "",
     organization: "",
@@ -26,15 +38,48 @@ export const DemoPage = () => {
     message: "",
   });
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    
-    // Simulate form submission
-    setIsSubmitted(true);
-    toast({
-      title: "Demo Request Received",
-      description: "We'll be in touch within 24 hours.",
-    });
+    setIsSubmitting(true);
+
+    try {
+      // Validate form data
+      const validatedData = demoRequestSchema.parse(formData);
+
+      // Save to database
+      const { error } = await supabase.from("demo_requests").insert({
+        name: validatedData.name,
+        organization: validatedData.organization,
+        role: validatedData.role,
+        industry: validatedData.industry,
+        email: validatedData.email,
+        message: validatedData.message || null,
+      });
+
+      if (error) throw error;
+
+      setIsSubmitted(true);
+      toast({
+        title: "Demo Request Received",
+        description: "We'll be in touch within 24 hours.",
+      });
+    } catch (error) {
+      if (error instanceof z.ZodError) {
+        toast({
+          title: "Validation Error",
+          description: error.errors[0].message,
+          variant: "destructive",
+        });
+      } else {
+        toast({
+          title: "Submission Failed",
+          description: "Please try again later.",
+          variant: "destructive",
+        });
+      }
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => {
@@ -264,8 +309,8 @@ export const DemoPage = () => {
                   </div>
 
                   {/* Submit Button */}
-                  <Button type="submit" variant="cta" size="lg" className="w-full mt-8">
-                    Request Demo
+                  <Button type="submit" variant="cta" size="lg" className="w-full mt-8" disabled={isSubmitting}>
+                    {isSubmitting ? <><Loader2 className="w-4 h-4 mr-2 animate-spin" /> Submitting...</> : "Request Demo"}
                   </Button>
 
                   {/* Security Note */}
