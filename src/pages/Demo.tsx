@@ -58,6 +58,20 @@ export const DemoPage = () => {
 
       if (error) throw error;
 
+      // Send email notification (fire and forget - don't block success)
+      supabase.functions.invoke("send-demo-notification", {
+        body: {
+          name: validatedData.name,
+          organization: validatedData.organization,
+          role: validatedData.role,
+          industry: validatedData.industry,
+          email: validatedData.email,
+          message: validatedData.message || "",
+        },
+      }).catch((emailError) => {
+        console.error("Email notification failed:", emailError);
+      });
+
       setIsSubmitted(true);
       toast({
         title: "Demo Request Received",
