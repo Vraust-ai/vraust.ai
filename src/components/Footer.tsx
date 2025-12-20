@@ -1,5 +1,5 @@
 import { Link } from "react-router-dom";
-import vraustLogo from "@/assets/vraust-logo-horizontal.png";
+import vraustLogo from "@/assets/vraust-logo-white.png";
 
 export const Footer = () => {
   const currentYear = new Date().getFullYear();
@@ -14,7 +14,7 @@ export const Footer = () => {
               <img 
                 src={vraustLogo} 
                 alt="Vraust.ai - Privacy. Security. Compliance" 
-                className="h-12 w-auto brightness-0 invert"
+                className="h-14 w-auto"
               />
             </Link>
             <p className="text-muted-foreground text-sm leading-relaxed max-w-md mb-6">
