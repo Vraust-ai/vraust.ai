@@ -2,10 +2,101 @@ import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
 
 const RESEND_API_KEY = Deno.env.get("RESEND_API_KEY");
 
+// Allowed origins for CORS
+const ALLOWED_ORIGINS = [
+  "https://vraust.ai",
+  "https://www.vraust.ai",
+  "http://localhost:5173",
+  "http://localhost:8080",
+];
+
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
 };
+
+// HTML escape function to prevent XSS
+function escapeHtml(unsafe: string): string {
+  return unsafe
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&#039;");
+}
+
+// Server-side validation schema
+function validateDemoRequest(data: unknown): { valid: boolean; error?: string; data?: DemoRequest } {
+  if (!data || typeof data !== 'object') {
+    return { valid: false, error: "Invalid request body" };
+  }
+  
+  const { name, organization, role, industry, email, message } = data as Record<string, unknown>;
+  
+  // Name validation
+  if (typeof name !== 'string' || name.trim().length === 0) {
+    return { valid: false, error: "Name is required" };
+  }
+  if (name.length > 100) {
+    return { valid: false, error: "Name must be less than 100 characters" };
+  }
+  
+  // Organization validation
+  if (typeof organization !== 'string' || organization.trim().length === 0) {
+    return { valid: false, error: "Organization is required" };
+  }
+  if (organization.length > 200) {
+    return { valid: false, error: "Organization must be less than 200 characters" };
+  }
+  
+  // Role validation
+  if (typeof role !== 'string' || role.trim().length === 0) {
+    return { valid: false, error: "Role is required" };
+  }
+  if (role.length > 100) {
+    return { valid: false, error: "Role must be less than 100 characters" };
+  }
+  
+  // Industry validation
+  const validIndustries = ["Banking", "FinTech", "Insurance", "Healthcare", "Other"];
+  if (typeof industry !== 'string' || !validIndustries.includes(industry)) {
+    return { valid: false, error: "Invalid industry selection" };
+  }
+  
+  // Email validation
+  if (typeof email !== 'string' || email.trim().length === 0) {
+    return { valid: false, error: "Email is required" };
+  }
+  if (email.length > 255) {
+    return { valid: false, error: "Email must be less than 255 characters" };
+  }
+  const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+  if (!emailRegex.test(email)) {
+    return { valid: false, error: "Invalid email format" };
+  }
+  
+  // Message validation (optional)
+  if (message !== undefined && message !== null) {
+    if (typeof message !== 'string') {
+      return { valid: false, error: "Message must be a string" };
+    }
+    if (message.length > 1000) {
+      return { valid: false, error: "Message must be less than 1000 characters" };
+    }
+  }
+  
+  return {
+    valid: true,
+    data: {
+      name: name.trim(),
+      organization: organization.trim(),
+      role: role.trim(),
+      industry,
+      email: email.trim().toLowerCase(),
+      message: typeof message === 'string' ? message.trim() : undefined,
+    },
+  };
+}
 
 interface DemoRequest {
   name: string;
@@ -22,10 +113,40 @@ const handler = async (req: Request): Promise<Response> => {
     return new Response(null, { headers: corsHeaders });
   }
 
+  // Validate origin (optional but recommended for production)
+  const origin = req.headers.get("origin");
+  if (origin && !ALLOWED_ORIGINS.some(allowed => origin.startsWith(allowed.replace(/:\d+$/, '')))) {
+    console.warn("Request from unauthorized origin:", origin);
+    // We still allow it but log for monitoring - in production you might want to block
+  }
+
   try {
-    const { name, organization, role, industry, email, message }: DemoRequest = await req.json();
+    const rawBody = await req.json();
+    
+    // Server-side validation
+    const validation = validateDemoRequest(rawBody);
+    if (!validation.valid || !validation.data) {
+      console.error("Validation failed:", validation.error);
+      return new Response(
+        JSON.stringify({ error: validation.error }),
+        {
+          status: 400,
+          headers: { "Content-Type": "application/json", ...corsHeaders },
+        }
+      );
+    }
+    
+    const { name, organization, role, industry, email, message } = validation.data;
 
     console.log("Sending demo notification for:", { name, organization, email });
+
+    // Escape all user inputs for HTML
+    const safeName = escapeHtml(name);
+    const safeOrg = escapeHtml(organization);
+    const safeRole = escapeHtml(role);
+    const safeIndustry = escapeHtml(industry);
+    const safeEmail = escapeHtml(email);
+    const safeMessage = message ? escapeHtml(message) : "";
 
     // Send notification to Vraust team
     const notificationRes = await fetch("https://api.resend.com/emails", {
@@ -37,7 +158,7 @@ const handler = async (req: Request): Promise<Response> => {
       body: JSON.stringify({
         from: "Vraust.ai <demo@vraust.ai>",
         to: ["demo@vraust.ai"],
-        subject: `New Demo Request from ${name} at ${organization}`,
+        subject: `New Demo Request from ${safeName} at ${safeOrg}`,
         html: `
           <div style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px;">
             <h1 style="color: #0ea5e9; margin-bottom: 24px;">New Demo Request</h1>
@@ -47,31 +168,31 @@ const handler = async (req: Request): Promise<Response> => {
               <table style="width: 100%; border-collapse: collapse;">
                 <tr>
                   <td style="padding: 8px 0; color: #64748b; width: 120px;"><strong>Name:</strong></td>
-                  <td style="padding: 8px 0; color: #1e293b;">${name}</td>
+                  <td style="padding: 8px 0; color: #1e293b;">${safeName}</td>
                 </tr>
                 <tr>
                   <td style="padding: 8px 0; color: #64748b;"><strong>Email:</strong></td>
-                  <td style="padding: 8px 0; color: #1e293b;"><a href="mailto:${email}" style="color: #0ea5e9;">${email}</a></td>
+                  <td style="padding: 8px 0; color: #1e293b;"><a href="mailto:${safeEmail}" style="color: #0ea5e9;">${safeEmail}</a></td>
                 </tr>
                 <tr>
                   <td style="padding: 8px 0; color: #64748b;"><strong>Organization:</strong></td>
-                  <td style="padding: 8px 0; color: #1e293b;">${organization}</td>
+                  <td style="padding: 8px 0; color: #1e293b;">${safeOrg}</td>
                 </tr>
                 <tr>
                   <td style="padding: 8px 0; color: #64748b;"><strong>Role:</strong></td>
-                  <td style="padding: 8px 0; color: #1e293b;">${role}</td>
+                  <td style="padding: 8px 0; color: #1e293b;">${safeRole}</td>
                 </tr>
                 <tr>
                   <td style="padding: 8px 0; color: #64748b;"><strong>Industry:</strong></td>
-                  <td style="padding: 8px 0; color: #1e293b;">${industry}</td>
+                  <td style="padding: 8px 0; color: #1e293b;">${safeIndustry}</td>
                 </tr>
               </table>
             </div>
             
-            ${message ? `
+            ${safeMessage ? `
             <div style="background: #f8fafc; border-radius: 8px; padding: 20px;">
               <h2 style="margin: 0 0 12px 0; color: #334155; font-size: 18px;">Message</h2>
-              <p style="margin: 0; color: #475569; line-height: 1.6;">${message}</p>
+              <p style="margin: 0; color: #475569; line-height: 1.6;">${safeMessage}</p>
             </div>
             ` : ""}
             
@@ -100,18 +221,18 @@ const handler = async (req: Request): Promise<Response> => {
       },
       body: JSON.stringify({
         from: "Vraust.ai <demo@vraust.ai>",
-        to: [email],
-        subject: `Thanks for your interest in Vraust.ai, ${name}!`,
+        to: [email], // Use original email for actual delivery
+        subject: `Thanks for your interest in Vraust.ai, ${safeName}!`,
         html: `
           <div style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px; background: #ffffff;">
             <div style="text-align: center; margin-bottom: 32px;">
               <h1 style="color: #0f172a; margin: 0 0 8px 0; font-size: 28px;">We've received your demo request!</h1>
-              <p style="color: #64748b; margin: 0; font-size: 16px;">Thanks for reaching out, ${name}</p>
+              <p style="color: #64748b; margin: 0; font-size: 16px;">Thanks for reaching out, ${safeName}</p>
             </div>
             
             <div style="background: linear-gradient(135deg, #0ea5e9 0%, #6366f1 100%); border-radius: 12px; padding: 24px; margin-bottom: 24px; color: white;">
               <p style="margin: 0; font-size: 16px; line-height: 1.6;">
-                We're excited that <strong>${organization}</strong> is interested in exploring how Vraust.ai can transform your ${industry.toLowerCase()} workflows with AI-powered automation.
+                We're excited that <strong>${safeOrg}</strong> is interested in exploring how Vraust.ai can transform your ${safeIndustry.toLowerCase()} workflows with AI-powered automation.
               </p>
             </div>
             
@@ -119,7 +240,7 @@ const handler = async (req: Request): Promise<Response> => {
               <h2 style="margin: 0 0 16px 0; color: #334155; font-size: 18px;">What happens next?</h2>
               <ul style="margin: 0; padding-left: 20px; color: #475569; line-height: 1.8;">
                 <li>Our team will review your request within <strong>24 hours</strong></li>
-                <li>We'll reach out to schedule a personalized demo tailored to your ${role.toLowerCase()} needs</li>
+                <li>We'll reach out to schedule a personalized demo tailored to your ${safeRole.toLowerCase()} needs</li>
                 <li>You'll see firsthand how Vraust.ai can streamline your operations</li>
               </ul>
             </div>
