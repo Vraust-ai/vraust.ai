@@ -83,10 +83,10 @@ export const HowItWorksSection = () => {
                 <text x="120" y="212" textAnchor="middle" fill="hsl(210, 15%, 60%)" fontSize="9">Local Training</text>
               </g>
 
-              {/* Flow Lines to Aggregator */}
-              <path d="M165 100 Q 280 100 400 200" fill="none" stroke="url(#primaryGradient)" strokeWidth="2" className="flow-line" filter="url(#glow)" />
-              <path d="M165 200 L 350 200" fill="none" stroke="url(#primaryGradient)" strokeWidth="2" className="flow-line" filter="url(#glow)" />
-              <path d="M165 300 Q 280 300 400 200" fill="none" stroke="url(#primaryGradient)" strokeWidth="2" className="flow-line" filter="url(#glow)" />
+              {/* Flow Lines to Aggregator (from Banks A, B, and Insurer to Vraust logo) */}
+              <path d="M165 100 Q 280 100 325 200" fill="none" stroke="url(#primaryGradient)" strokeWidth="2" className="flow-line" filter="url(#glow)" />
+              <path d="M165 200 L 325 200" fill="none" stroke="url(#primaryGradient)" strokeWidth="2" className="flow-line" filter="url(#glow)" />
+              <path d="M165 300 Q 280 300 325 200" fill="none" stroke="url(#primaryGradient)" strokeWidth="2" className="flow-line" filter="url(#glow)" />
 
               {/* Secure Aggregator (Vraust Logo) */}
               <g filter="url(#glow)">
@@ -100,7 +100,7 @@ export const HowItWorksSection = () => {
               </g>
 
               {/* Flow Lines to Global Model */}
-              <path d="M450 200 L 580 200" fill="none" stroke="url(#primaryGradient)" strokeWidth="2" className="flow-line" filter="url(#glow)" />
+              <path d="M475 200 L 580 200" fill="none" stroke="url(#primaryGradient)" strokeWidth="2" className="flow-line" filter="url(#glow)" />
 
               {/* Global Model */}
               <g className="node-pulse" style={{ animationDelay: '0.9s' }}>
@@ -110,10 +110,10 @@ export const HowItWorksSection = () => {
                 <text x="680" y="225" textAnchor="middle" fill="hsl(185, 75%, 50%)" fontSize="9">Shared Intelligence</text>
               </g>
 
-              {/* Return arrows (improved model back to institutions) */}
-              <path d="M620 170 Q 400 50 170 95" fill="none" stroke="hsl(185, 75%, 50%)" strokeWidth="1.5" strokeDasharray="6 3" opacity="0.6" />
-              <path d="M620 200 L 170 200" fill="none" stroke="hsl(185, 75%, 50%)" strokeWidth="1.5" strokeDasharray="6 3" opacity="0.6" />
-              <path d="M620 230 Q 400 350 170 305" fill="none" stroke="hsl(185, 75%, 50%)" strokeWidth="1.5" strokeDasharray="6 3" opacity="0.6" />
+              {/* Return arrows (from Global Model back to Banks A, B, and Insurer) */}
+              <path d="M620 170 Q 400 50 170 95" fill="none" stroke="hsl(185, 75%, 50%)" strokeWidth="1.5" className="flow-line" opacity="0.7" />
+              <path d="M620 200 L 170 200" fill="none" stroke="hsl(185, 75%, 50%)" strokeWidth="1.5" className="flow-line" opacity="0.7" />
+              <path d="M620 230 Q 400 350 170 305" fill="none" stroke="hsl(185, 75%, 50%)" strokeWidth="1.5" className="flow-line" opacity="0.7" />
 
               {/* Labels */}
               <text x="255" y="145" textAnchor="middle" fill="hsl(210, 15%, 60%)" fontSize="9">Encrypted</text>
