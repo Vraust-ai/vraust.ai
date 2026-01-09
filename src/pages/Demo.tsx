@@ -16,7 +16,12 @@ declare global {
     grecaptcha: {
       ready: (callback: () => void) => void;
       execute: (siteKey: string, options: { action: string }) => Promise<string>;
-      render: (container: string | HTMLElement, options: { sitekey: string; callback: (token: string) => void; "expired-callback": () => void }) => number;
+      render: (container: string | HTMLElement, options: { 
+        sitekey: string; 
+        callback: (token: string) => void; 
+        "expired-callback": () => void;
+        "error-callback"?: () => void;
+      }) => number;
       reset: (widgetId?: number) => void;
     };
     onRecaptchaLoaded?: () => void;
@@ -56,6 +61,7 @@ export const DemoPage = () => {
   const [recaptchaToken, setRecaptchaToken] = useState<string | null>(null);
   const [recaptchaWidgetId, setRecaptchaWidgetId] = useState<number | null>(null);
   const [recaptchaLoaded, setRecaptchaLoaded] = useState(false);
+  const [recaptchaError, setRecaptchaError] = useState<string | null>(null);
 
   // Load reCAPTCHA script
   useEffect(() => {
@@ -86,21 +92,34 @@ export const DemoPage = () => {
     if (!recaptchaLoaded || recaptchaWidgetId !== null || isSubmitted) return;
     
     const container = document.getElementById("recaptcha-container");
-    if (!container || !window.grecaptcha) return;
+    if (!container || !window.grecaptcha) {
+      console.error("reCAPTCHA: Container or grecaptcha not found");
+      return;
+    }
 
     try {
+      console.log("Rendering reCAPTCHA with site key:", RECAPTCHA_SITE_KEY);
       const widgetId = window.grecaptcha.render("recaptcha-container", {
         sitekey: RECAPTCHA_SITE_KEY,
         callback: (token: string) => {
+          console.log("reCAPTCHA token received");
           setRecaptchaToken(token);
+          setRecaptchaError(null);
         },
         "expired-callback": () => {
+          console.log("reCAPTCHA token expired");
           setRecaptchaToken(null);
+        },
+        "error-callback": () => {
+          console.error("reCAPTCHA encountered an error");
+          setRecaptchaError("reCAPTCHA failed to load. Please refresh the page.");
         },
       });
       setRecaptchaWidgetId(widgetId);
+      console.log("reCAPTCHA widget rendered successfully, widgetId:", widgetId);
     } catch (error) {
       console.error("Error rendering reCAPTCHA:", error);
+      setRecaptchaError("Failed to initialize reCAPTCHA. Please refresh the page.");
     }
   }, [recaptchaLoaded, recaptchaWidgetId, isSubmitted]);
 
@@ -428,6 +447,12 @@ export const DemoPage = () => {
                     {/* reCAPTCHA */}
                     <div className="mt-4">
                       <div id="recaptcha-container" className="flex justify-center"></div>
+                      {recaptchaError && (
+                        <p className="text-sm text-destructive text-center mt-2">{recaptchaError}</p>
+                      )}
+                      {!recaptchaLoaded && !recaptchaError && (
+                        <p className="text-sm text-muted-foreground text-center mt-2">Loading verification...</p>
+                      )}
                     </div>
                   </div>
 
